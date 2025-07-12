@@ -8,9 +8,9 @@ The system was tested on historical stock data from major companies (AAPL, GOOGL
 - Simulates a trading bot with adjustable transaction volume (k-value).
 - Tests strategy performance across multiple real-world stocks.
 
-**How to Run
-**
-Requirements
+## How to Run
+
+**Requirements**
 
 Make sure you have Python 3.7+ and the following libraries installed:
 
@@ -26,7 +26,7 @@ python stock_ai.py
 
 Make sure your terminal is pointed at the directory where `stock_ai.py` is saved.
 
-**Dataset**
+## Datasets
 
 This project uses historical stock data obtained via the [Yahoo Finance API](https://pypi.org/project/yfinance/), accessed through the `yfinance` Python library.
 
@@ -62,8 +62,8 @@ The script prints:
 - Dynamic model weights over time
 - Simulated ROI from the trading bot at different `k` values (10–200)
 
-**Results Summary
-**
+## Results Summary
+
 
 - **Best performing stock**: Walmart (WMT) with test MSE of 0.76
 - **Best `k` for trading bot**: 120
