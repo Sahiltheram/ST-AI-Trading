@@ -10,15 +10,28 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
 
 # Data fetching and preprocessing
-ticker = yf.Ticker('AAPL')  # Import data
-aapl_df = ticker.history(period="5y")  # Get 5 years of data in a DataFrame
-open = aapl_df[['Close']].to_numpy()  # Using Close prices instead of Open
+ticker = yf.Ticker('AAPL') #import data
+ticker_microsoft = yf.Ticker('^GSPC')
+aapl_df = ticker.history(period="20y") #get data from 5 year period in dataframe
+msft_df = ticker_microsoft.history(period="20y") #get data from 5 year period in dataframe
 
-x = np.zeros((1260, 2))
-y = [0] * 1260
-for i in range(1240):
-    x[i] = [open[i][0], open[i + 1][0]]
-    y[i] = open[i + 2][0]
+open = np.empty(shape = (5000), dtype = float)
+open_1 = np.empty(shape = (5000), dtype = float)
+close = np.empty(shape = (5000), dtype = float)
+close_1 = np.empty(shape = (5000), dtype = float)
+
+open=aapl_df[['Open']].to_numpy()
+open_1=msft_df[['Open']].to_numpy()
+
+close=aapl_df[['Close']].to_numpy()
+close_1=msft_df[['Close']].to_numpy()
+
+
+x = np.zeros((5000, 6))
+y = [0] * 5000
+for i in range(5000):
+  x[i]=[open[i][0], open[i+1][0], open[i+2][0], open_1[i][0], open_1[i+1][0], open_1[i+2][0]]
+  y[i]=open[i+2][0]
 
 # Train/test split
 x_train, x_test, y_train, y_test = train_test_split(
@@ -34,6 +47,7 @@ linear.fit(x_train, y_train)
 y_pred_linear = linear.predict(x_test)
 y_train_pred_linear = linear.predict(x_train)
 linear_mse = mean_squared_error(y_test, y_pred_linear)
+print("Coefficients: \n", linear.coef_)
 print("Linear MSE:", linear_mse, mean_squared_error(y_train, y_train_pred_linear))
 
 # Decision Tree Regressor
@@ -107,8 +121,23 @@ for day in range(days):
     tree_weight = weights[2]
     linear_weight = weights[3]
 
-# Final predictions with weighted average
 predictions = (nn.predict(x) * nn_weight) + (tree.predict(x) * tree_weight) + (forest.predict(x) * forest_weight) + (linear.predict(x) * linear_weight)
+
+open_pct_diffs = []
+for i in range(1, len(open)):
+    pct_diff = abs(open[i] - open[i - 1]) / open[i - 1]
+    open_pct_diffs.append(pct_diff)
+avg_open_pct_diff = np.mean(open_pct_diffs)
+print("Average % difference between daily opening prices:", avg_open_pct_diff * 100)
+
+
+open_close_pct_diffs = []
+for i in range(len(open)):
+    if open[i] != 0:
+        pct_diff = abs(close[i] - open[i]) / open[i]
+        open_close_pct_diffs.append(pct_diff)
+avg_open_close_pct_diff = np.mean(open_close_pct_diffs)
+print("Average % difference between opening and closing prices each day:", avg_open_close_pct_diff * 100)
 
 # Backtesting trading simulation
 budget = 10000
