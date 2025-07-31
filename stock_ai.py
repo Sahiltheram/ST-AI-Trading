@@ -8,160 +8,178 @@ from sklearn.metrics import mean_squared_error
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from typing import Union, List
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.linear_model import LinearRegression
+import numpy as np
 
-# Data fetching and preprocessing
-ticker = yf.Ticker('AAPL') #import data
-ticker_microsoft = yf.Ticker('^GSPC')
-aapl_df = ticker.history(period="20y") #get data from 5 year period in dataframe
-msft_df = ticker_microsoft.history(period="20y") #get data from 5 year period in dataframe
+# data preparation
 
-open = np.empty(shape = (5000), dtype = float)
-open_1 = np.empty(shape = (5000), dtype = float)
-close = np.empty(shape = (5000), dtype = float)
-close_1 = np.empty(shape = (5000), dtype = float)
+def download_yahoo_data(
+    tickers: Union[str, List[str]],
+    start: str = "2022-01-01",
+    end: str = None,
+    interval: str = "1d",
+    group_by: str = "ticker",
+    auto_adjust: bool = True,
+    progress: bool = True
+) -> pd.DataFrame:
+    """
+    Download historical stock data from Yahoo Finance.
 
-open=aapl_df[['Open']].to_numpy()
-open_1=msft_df[['Open']].to_numpy()
+    Parameters:
+    - tickers (str or List[str]): One or more ticker symbols (e.g., 'AAPL' or ['AAPL', 'GOOG'])
+    - start (str): Start date in 'YYYY-MM-DD' format
+    - end (str): End date in 'YYYY-MM-DD' format (None = today)
+    - interval (str): Data interval ('1d', '1wk', '1mo', '1h', etc.)
+    - group_by (str): How to group data when multiple tickers provided ('ticker' or 'column')
+    - auto_adjust (bool): Adjust prices for splits/dividends
+    - progress (bool): Show download progress
 
-close=aapl_df[['Close']].to_numpy()
-close_1=msft_df[['Close']].to_numpy()
+    Returns:
+    - pd.DataFrame: DataFrame with stock price data
+    """
+    if isinstance(tickers, str):
+        tickers = [tickers]
 
+    data = yf.download(
+        tickers=tickers,
+        start=start,
+        end=end,
+        interval=interval,
+        group_by=group_by,
+        auto_adjust=auto_adjust,
+        progress=progress
+    )
 
-x = np.zeros((5000, 6))
-y = [0] * 5000
-for i in range(5000):
-  x[i]=[open[i][0], open[i+1][0], open[i+2][0], open_1[i][0], open_1[i+1][0], open_1[i+2][0]]
-  y[i]=open[i+2][0]
-
-# Train/test split
-x_train, x_test, y_train, y_test = train_test_split(
-    x, y, test_size=0.33
-)
-print(x_train[0], y_train[0])
-
-# Model training and evaluation
-
-# Linear Regression
-linear = linear_model.LinearRegression()
-linear.fit(x_train, y_train)
-y_pred_linear = linear.predict(x_test)
-y_train_pred_linear = linear.predict(x_train)
-linear_mse = mean_squared_error(y_test, y_pred_linear)
-print("Coefficients: \n", linear.coef_)
-print("Linear MSE:", linear_mse, mean_squared_error(y_train, y_train_pred_linear))
-
-# Decision Tree Regressor
-max_depth = 25
-random_state = 20
-tree = DecisionTreeRegressor(max_depth=max_depth, random_state=random_state)
-tree.fit(x_train, y_train)
-y_pred_tree = tree.predict(x_test)
-y_train_pred_tree = tree.predict(x_train)
-tree_mse = mean_squared_error(y_test, y_pred_tree)
-print("Tree MSE:", tree_mse, mean_squared_error(y_train, y_train_pred_tree))
-
-# Random Forest Regressor
-forest = RandomForestRegressor(max_depth=max_depth, random_state=random_state)
-forest.fit(x_train, y_train)
-y_pred_forest = forest.predict(x_test)
-y_train_pred_forest = forest.predict(x_train)
-forest_mse = mean_squared_error(y_test, y_pred_forest)
-print("Forest MSE:", forest_mse, mean_squared_error(y_train, y_train_pred_forest))
-
-# Neural Network Regressor
-nn = MLPRegressor(random_state=1, max_iter=500)
-nn.fit(x_train, y_train)
-y_pred_nn = nn.predict(x_test)
-y_train_pred_nn = nn.predict(x_train)
-nn_mse = mean_squared_error(y_test, y_pred_nn)
-print("Neural Net MSE:", nn_mse, mean_squared_error(y_train, y_train_pred_nn))
-
-# Ensemble averaging
-average_test = (y_pred_nn + y_pred_forest + y_pred_tree + y_pred_linear) / 4
-average_train = (y_train_pred_nn + y_train_pred_forest + y_train_pred_tree + y_train_pred_linear) / 4
-print("Ensemble MSE:", mean_squared_error(y_test, average_test), mean_squared_error(y_train, average_train))
-
-# Dynamic weight computation based on inverse error
-total_error = nn_mse + forest_mse + tree_mse + linear_mse
-nn_error_inverse = total_error / nn_mse
-forest_error_inverse = total_error / forest_mse
-tree_error_inverse = total_error / tree_mse
-linear_error_inverse = total_error / linear_mse
-multiplier = 1 / (nn_error_inverse + forest_error_inverse + tree_error_inverse + linear_error_inverse)
-nn_weight = nn_error_inverse * multiplier
-forest_weight = forest_error_inverse * multiplier
-tree_weight = tree_error_inverse * multiplier
-linear_weight = linear_error_inverse * multiplier
-print("Initial Weights:", nn_weight, forest_weight, tree_weight, linear_weight)
-
-# Dynamic weighting loop based on percent error per day
-days = 10
-nn_weight = 0.25
-forest_weight = 0.25
-tree_weight = 0.25
-linear_weight = 0.25
-cumulative_errors = np.array([0.0, 0.0, 0.0, 0.0])
-for day in range(days):
-    print("Weights on day", day, ":", nn_weight, forest_weight, tree_weight, linear_weight)
-    if y_test[day] != 0:
-        nn_percent_error = abs((y_pred_nn[day] - y_test[day]) / y_test[day])
-        forest_percent_error = abs((y_pred_forest[day] - y_test[day]) / y_test[day])
-        tree_percent_error = abs((y_pred_tree[day] - y_test[day]) / y_test[day])
-        linear_percent_error = abs((y_pred_linear[day] - y_test[day]) / y_test[day])
-    cumulative_errors[0] += nn_percent_error
-    cumulative_errors[1] += forest_percent_error
-    cumulative_errors[2] += tree_percent_error
-    cumulative_errors[3] += linear_percent_error
-
-    avg_errors = cumulative_errors / (day + 1)
-    inverse_errors = np.array([1 / (e + 1e-8) for e in avg_errors])
-    weights = inverse_errors / np.sum(inverse_errors)
-    nn_weight = weights[0]
-    forest_weight = weights[1]
-    tree_weight = weights[2]
-    linear_weight = weights[3]
-
-predictions = (nn.predict(x) * nn_weight) + (tree.predict(x) * tree_weight) + (forest.predict(x) * forest_weight) + (linear.predict(x) * linear_weight)
-
-open_pct_diffs = []
-for i in range(1, len(open)):
-    pct_diff = abs(open[i] - open[i - 1]) / open[i - 1]
-    open_pct_diffs.append(pct_diff)
-avg_open_pct_diff = np.mean(open_pct_diffs)
-print("Average % difference between daily opening prices:", avg_open_pct_diff * 100)
+    return data
 
 
-open_close_pct_diffs = []
-for i in range(len(open)):
-    if open[i] != 0:
-        pct_diff = abs(close[i] - open[i]) / open[i]
-        open_close_pct_diffs.append(pct_diff)
-avg_open_close_pct_diff = np.mean(open_close_pct_diffs)
-print("Average % difference between opening and closing prices each day:", avg_open_close_pct_diff * 100)
+# Parameters
+tickers = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'META', 'NVDA', 'TSLA', 'ADBE', 'CRM', 'INTC']
+data = download_yahoo_data(tickers)
+pct_change_21_day = data[tickers].pct_change(21)
+column_index= [(i, 'Close') for i in tickers]
+outcomes= pct_change_21_day[column_index].dropna()
+# Add 21-day percent change column for each ticker
+for ticker in tickers:
+    future = data[ticker]['Close'].shift(-21)
+    today = data[ticker]['Close']
+    pct_change = (future - today) / today
+    data[(ticker, '21daychange')] = pct_change
+    # Add Moving Averages
+    data[(ticker, 'MA_10')] = data[ticker]['Close'].rolling(window=10).mean()
+    data[(ticker, 'MA_21')] = data[ticker]['Close'].rolling(window=21).mean()
 
-# Backtesting trading simulation
-budget = 10000
-stocks = 0
-k = 1
-max_k = 200
-initial_budget = 10000
-initial_stocks = 0
+    # Add RSI (Relative Strength Index)
+    delta = data[ticker]['Close'].diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = -delta.clip(upper=0).rolling(14).mean()
+    rs = gain / loss
+    data[(ticker, 'RSI_14')] = 100 - (100 / (1 + rs))
 
-while k <= max_k:
-    budget = initial_budget
-    stocks = initial_stocks
 
-    for i in range(1250):
-        if (y[i] < predictions[i + 1]) and (budget > k * y[i]):
-            budget -= k * y[i]
-            stocks += k
-        elif stocks > k - 1:
-            budget += k * y[i]
-            stocks -= k
+data_with_outcomes = data[tickers].iloc[:-21,:]
+print(data_with_outcomes)
+# Add outcomes to the DataFrame
+def sliding_window_split(data, train_days, purge_days, val_days, test_days, step=21):
+    """
+    Yield train, validation, and test sets using a sliding window approach.
 
-        if i == 1249:
-            budget += y[i] * stocks
-            stocks = 0
+    Parameters:
+    - data: DataFrame with MultiIndex columns (ticker, feature)
+    - step: number of days to move the window each iteration
+    """
+    total_days = train_days + purge_days + val_days + purge_days + test_days
+    max_start = len(data) - total_days
 
-    print(f"For k={k}: stocks={stocks}, budget={budget - 10000}")
-    k += 1
+    for start in range(0, max_start, step):
+        train = data.iloc[start : start + train_days]
+        val = data.iloc[start + train_days + purge_days : start + train_days + purge_days + val_days]
+        test = data.iloc[start + train_days + purge_days + val_days + purge_days : start + total_days]
+
+        yield train, val, test
+
+# data_clean = data_with_outcomes.dropna()
+
+# # Convert window size
+# train_days = 126
+# purge_days = 32
+# val_days = 32
+# test_days = 63
+
+# from sklearn.ensemble import RandomForestRegressor
+# from sklearn.metrics import mean_squared_error, r2_score
+
+# def sliding_window_split(data, train_days, purge_days, val_days, test_days, step=21):
+#     total_days = train_days + purge_days + val_days + purge_days + test_days
+#     max_start = len(data) - total_days
+
+#     for start in range(0, max_start, step):
+#         train = data.iloc[start : start + train_days]
+#         val = data.iloc[start + train_days + purge_days : start + train_days + purge_days + val_days]
+#         test = data.iloc[start + train_days + purge_days + val_days + purge_days : start + total_days]
+#         yield train, val, test
+
+# # Set window sizes
+# train_days = 126
+# purge_days = 32
+# val_days = 32
+# test_days = 63
+# step = 21
+
+# all_scores = {ticker: [] for ticker in tickers}
+
+# # Loop through the windows and train model each time
+# for i, (train, val, test) in enumerate(sliding_window_split(data_clean, train_days, purge_days, val_days, test_days, step=step)):
+#     print(f"Window {i+1}")
+    
+#     # Feature/target selection — use all features except '21daychange'
+#     X_train = train.drop(columns=[(ticker, '21daychange') for ticker in tickers], axis=1)
+#     y_train = pd.concat([train[(ticker, '21daychange')] for ticker in tickers], axis=1)
+
+#     X_test = test.drop(columns=[(ticker, '21daychange') for ticker in tickers], axis=1)
+#     y_test = pd.concat([test[(ticker, '21daychange')] for ticker in tickers], axis=1)
+
+#     X_train.columns = ['_'.join(col) for col in X_train.columns]
+#     X_test.columns = ['_'.join(col) for col in X_test.columns]
+#     y_train.columns = [f'{ticker}_21daychange' for ticker in tickers]
+#     y_test.columns = [f'{ticker}_21daychange' for ticker in tickers]
+
+#     for df in [y_train, y_test]:
+#         for ticker in tickers:
+#             df[f'{ticker}_target'] = (df[f'{ticker}_21daychange'] > 0.10).astype(int)   
+
+#  # Train classifier per ticker
+#     for ticker in tickers:
+#         model = RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42)
+#         model.fit(X_train, y_train[f'{ticker}_target'])
+#         preds = model.predict(X_test)
+
+#         acc = accuracy_score(y_test[f'{ticker}_target'], preds)
+#         prec = precision_score(y_test[f'{ticker}_target'], preds, zero_division=0)
+#         rec = recall_score(y_test[f'{ticker}_target'], preds, zero_division=0)
+#         f1 = f1_score(y_test[f'{ticker}_target'], preds, zero_division=0)
+
+#         all_scores[ticker].append({
+#             "Accuracy": acc,
+#             "Precision": prec,
+#             "Recall": rec,
+#             "F1": f1
+#         })
+
+
+# # For each ticker, calculate average metrics
+# for ticker in tickers:
+#     print(f"Average performance for {ticker}:")
+#     scores = all_scores[ticker]
+#     avg_scores = {
+#         metric: sum(score[metric] for score in scores) / len(scores)
+#         for metric in scores[0]
+#     }
+#     for metric, value in avg_scores.items():
+#         print(f"{metric}: {value:.4f}")
+#     print()
