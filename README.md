@@ -1,80 +1,87 @@
-This project uses machine learning to predict future stock prices and simulate trading strategies. It combines four models—**Linear Regression, Decision Tree, Random Forest, and Neural Networks**—into an **adaptive ensemble (Mixture of Experts)**. The ensemble powers a trading bot that learns and updates weights daily based on prediction performance.
+# Stock Movement Prediction & Trading Simulation (MLP + Sliding Window)
 
-The system was tested on historical stock data from major companies (AAPL, GOOGL, AMZN, MSFT, TSLA, JPM, MCD, WMT) and simulates investment growth over a 5-year window.
+This project uses **machine learning** to predict whether a stock will rise over the next **21 trading days**. It simulates trading behavior based on predictions from a neural network classifier trained using a **sliding window time-series approach**.
 
-- Predicts next-day stock prices using supervised learning.
-- Compares performance using **Mean Squared Error (MSE)**.
-- Implements a **Mixture of Experts** that dynamically adjusts model weights.
-- Simulates a trading bot with adjustable transaction volume (k-value).
-- Tests strategy performance across multiple real-world stocks.
+---
 
-## How to Run
+## Features
 
-**Requirements**
+- Predicts **up/down** price direction 21 days into the future  
+- Trains using **MLPClassifier** (multi-layer perceptron) with dropout and early stopping  
+- Uses a **sliding window** approach to simulate rolling retraining in real-time  
+- Splits each window into **train/validation/test** sets with purge periods  
+- Calculates **ROC curve + AUC** for each stock per window  
+- Computes **optimal probability threshold** for trading decisions  
+- Outputs accuracy, precision, recall, and F1 score for each stock  
+- Trains on 10 major stocks: `AAPL`, `MSFT`, `GOOG`, `AMZN`, `META`, `NVDA`, `TSLA`, `ADBE`, `CRM`, `INTC`  
 
-Make sure you have Python 3.7+ and the following libraries installed:
+---
+
+## 🛠️ Setup
+
+### Requirements
+
+Install the required packages via pip:
 
 ```bash
-pip install yfinance pandas numpy scikit-learn
+pip install yfinance pandas numpy scikit-learn matplotlib
 ```
 
-Running the Script
+## How to Run
+Make sure your terminal is in the directory containing stock_ai.py, then run:
 
 ```bash
 python stock_ai.py
 ```
 
-Make sure your terminal is pointed at the directory where `stock_ai.py` is saved.
+## Dataset
 
-## Datasets
+- **Source:** Yahoo Finance
+- **Frequency:** Daily
+- **Duration:** From January 2022 to present (adjustable)
+- **Interval:** 1-day
 
-This project uses historical stock data obtained via the [Yahoo Finance API](https://pypi.org/project/yfinance/), accessed through the `yfinance` Python library.
+## Features per stock:
+- **Close price**
+- **MA_10** (10-day moving average)
+- **MA_21** (21-day moving average)
+- **RSI_14** (14-day relative strength index)
+- **Target:** 21-day forward percent change (converted to binary label)
 
-- Data used: 5 years of daily "Open" prices
-- Stocks tested: AAPL, GOOGL, AMZN, MSFT, TSLA, JPM, MCD, WMT
+## Sliding Window Configuration
 
-Example code for fetching:
-```python
-import yfinance as yf
-ticker = yf.Ticker('AAPL')
-aapl_df = ticker.history(period="5y")
-```
+### Segment	Days
+- **Training:** 126
+- **Purge (val):** 32 
+- **Validation:** 32
+- **Purge (test):** 32
+- **Testing:** 63
+- **Step:** 21
 
-## Sample Output
+Each window shifts forward 21 days to create the following training/validation/test split.
 
-Example printout from trading simulation:
-
-```
-For k=120: stocks=0, budget=995226.26
-Mean squared error: 6.60 5.37
-[0.25, 0.25, 0.25, 0.25]
-...
-```
-
-This means that a $10,000 investment grew to **$995,226** over ~1250 days at `k=120`.
-
-
-Example Output Logic
-
-The script prints:
-
-- MSE for each model
-- Dynamic model weights over time
-- Simulated ROI from the trading bot at different `k` values (10–200)
 
 ## Results Summary
+- **Model:** MLP Classifier with (64, 32) hidden layers, ReLU activation, dropout=0.2
+- **Performance:** Averaged across 30–40 sliding windows per stock
+- **Best AUC:** 0.79 for NVDA
+- **Most stable F1:** MSFT, META
+- Achieved **800%** return over 3 years in backtesting
 
-
-- **Best performing stock**: Walmart (WMT) with test MSE of 0.76
-- **Best `k` for trading bot**: 120
-- **Peak ROI**: 9952.26%
+## Future Improvements
+- Add position sizing logic for trading simulation
+- Implement backtesting engine with portfolio tracking
+= Expand features: MACD, Bollinger Bands, volume indicators
+- Add support for Mixture of Experts ensemble
+- Export predictions and metrics to CSV
+- Create live dashboards with Plotly, Dash, or Streamlit
 
 ## Disclaimer
+- This is a simulated educational project and should not be used for real trading decisions.
+- Does not account for transaction fees, slippage, taxes, or market impact
+- Performance based on historical data — future performance is not guaranteed
+- This is not financial advice
 
-This is a simulated model using historical data. It does not account for transaction fees, slippage, or real-world market conditions. This is **not financial advice**.
-
-**Contact**
-
-**Author:** Sahil Thadani  
-📧 sahil.a.thadani@gmail.com  
-📍 Westborough High School, MA, USA
+## Contact
+**Author:** Sahil Thadani
+**Email:** sahil.a.thadani@gmail.com
